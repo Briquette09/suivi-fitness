@@ -7,6 +7,57 @@ const DEFAULT_EXERCISES = [
   'Presse à cuisses', 'Fentes', 'Élévations latérales', 'Dips'
 ];
 
+// Programme Half-Body 3J de Brice (Haut A / Bas A / Haut B / Bas B).
+// PROGRAM_VERSION s'incrémente à chaque mise à jour du programme par défaut ;
+// seedDefaultProgram() ajoute alors les nouveaux modèles sans toucher à ceux déjà personnalisés par l'utilisateur.
+const PROGRAM_VERSION = 1;
+const DEFAULT_PROGRAM = [
+  {
+    name: 'Haut A',
+    exercises: [
+      { name: 'Développé couché barre (amplitude sans douleur)', targetSets: 4, targetReps: '5-8', restSeconds: 150 },
+      { name: 'Rowing barre', targetSets: 4, targetReps: '6-8', restSeconds: 120 },
+      { name: 'Développé militaire haltères (prise neutre)', targetSets: 3, targetReps: '8-10', restSeconds: 120 },
+      { name: 'Tractions (assistées élastique si besoin)', targetSets: 3, targetReps: '6-10', restSeconds: 120 },
+      { name: 'Curl barre EZ', targetSets: 3, targetReps: '8-12', restSeconds: 60 },
+      { name: 'Extensions triceps poulie haute (HG Compact)', targetSets: 3, targetReps: '10-12', restSeconds: 60 }
+    ]
+  },
+  {
+    name: 'Bas A',
+    exercises: [
+      { name: 'Squat barre', targetSets: 4, targetReps: '5-8', restSeconds: 150 },
+      { name: 'Soulevé de terre roumain (RDL)', targetSets: 3, targetReps: '8-10', restSeconds: 150 },
+      { name: 'Leg extension (HG Compact)', targetSets: 3, targetReps: '12-15', restSeconds: 90 },
+      { name: 'Leg curl (HG Compact)', targetSets: 3, targetReps: '10-12', restSeconds: 90 },
+      { name: 'Mollets debout (haltère en main)', targetSets: 4, targetReps: '12-15', restSeconds: 60 },
+      { name: 'Gainage planche', targetSets: 3, targetReps: '30-60 s', restSeconds: 60 }
+    ]
+  },
+  {
+    name: 'Haut B',
+    exercises: [
+      { name: 'Développé incliné haltères (prise neutre)', targetSets: 4, targetReps: '8-10', restSeconds: 120 },
+      { name: 'Tirage poulie haute / lat pulldown (HG Compact)', targetSets: 4, targetReps: '8-10', restSeconds: 120 },
+      { name: 'Rowing haltère unilatéral', targetSets: 3, targetReps: '10-12', restSeconds: 90 },
+      { name: 'Élévations latérales haltères', targetSets: 4, targetReps: '12-15', restSeconds: 60 },
+      { name: 'Curl marteau haltères', targetSets: 3, targetReps: '10-12', restSeconds: 60 },
+      { name: 'Skull crusher barre EZ (léger)', targetSets: 3, targetReps: '10-12', restSeconds: 60 }
+    ]
+  },
+  {
+    name: 'Bas B',
+    exercises: [
+      { name: 'Fentes haltères', targetSets: 3, targetReps: '10-12 / jambe', restSeconds: 120 },
+      { name: 'Hip thrust barre (dos sur le banc)', targetSets: 3, targetReps: '8-12', restSeconds: 120 },
+      { name: 'Leg curl (HG Compact)', targetSets: 3, targetReps: '12-15', restSeconds: 90 },
+      { name: 'Leg extension (HG Compact)', targetSets: 3, targetReps: '15-20', restSeconds: 90 },
+      { name: 'Mollets debout', targetSets: 4, targetReps: '15-20', restSeconds: 60 },
+      { name: 'Relevé de jambes (barre de traction)', targetSets: 3, targetReps: '10-15', restSeconds: 60 }
+    ]
+  }
+];
+
 function defaultData() {
   return {
     workouts: [],
@@ -16,23 +67,43 @@ function defaultData() {
     nutritionGoals: { calories: 2200, protein: 150, carbs: 220, fat: 70 },
     favoriteFoods: [],
     weightEntries: [],
-    cardioEntries: []
+    cardioEntries: [],
+    programVersion: 0
   };
+}
+
+function seedDefaultProgram(d) {
+  if (d.programVersion >= PROGRAM_VERSION) return d;
+  const existingNames = new Set(d.workoutTemplates.map(t => t.name));
+  for (const tpl of DEFAULT_PROGRAM) {
+    if (existingNames.has(tpl.name)) continue;
+    d.workoutTemplates.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      name: tpl.name,
+      exercises: tpl.exercises.map(e => ({ ...e }))
+    });
+    for (const ex of tpl.exercises) {
+      if (!d.exerciseLibrary.includes(ex.name)) d.exerciseLibrary.push(ex.name);
+    }
+  }
+  d.programVersion = PROGRAM_VERSION;
+  return d;
 }
 
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultData();
+    if (!raw) return seedDefaultProgram(defaultData());
     const parsed = JSON.parse(raw);
-    return Object.assign(defaultData(), parsed);
+    return seedDefaultProgram(Object.assign(defaultData(), parsed));
   } catch (e) {
     console.error('Erreur de lecture des données, réinitialisation.', e);
-    return defaultData();
+    return seedDefaultProgram(defaultData());
   }
 }
 
 let data = load();
+save();
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
