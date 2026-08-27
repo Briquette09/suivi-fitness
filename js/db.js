@@ -10,6 +10,7 @@ const DEFAULT_EXERCISES = [
 function defaultData() {
   return {
     workouts: [],
+    workoutTemplates: [],
     exerciseLibrary: [...DEFAULT_EXERCISES],
     nutritionEntries: [],
     nutritionGoals: { calories: 2200, protein: 150, carbs: 220, fat: 70 },
@@ -76,6 +77,25 @@ const DB = {
       save();
     }
   },
+  // Programme (modèles de séance)
+  getTemplates() { return [...data.workoutTemplates].sort((a, b) => a.name.localeCompare(b.name, 'fr')); },
+  addTemplate(tpl) {
+    const t = { id: uid(), name: 'Nouveau modèle', exercises: [], ...tpl };
+    data.workoutTemplates.push(t);
+    save();
+    return t;
+  },
+  updateTemplate(id, patch) {
+    const t = data.workoutTemplates.find(x => x.id === id);
+    if (!t) return;
+    Object.assign(t, patch);
+    save();
+  },
+  deleteTemplate(id) {
+    data.workoutTemplates = data.workoutTemplates.filter(x => x.id !== id);
+    save();
+  },
+
   getExerciseHistory(exerciseName) {
     const points = [];
     for (const w of data.workouts) {

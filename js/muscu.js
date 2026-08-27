@@ -31,6 +31,7 @@ const MuscuView = (() => {
     container.innerHTML = `
       <div class="subtabs">
         <button data-sub="seance" class="${subTab === 'seance' ? 'active' : ''}">Séance</button>
+        <button data-sub="programme" class="${subTab === 'programme' ? 'active' : ''}">Programme</button>
         <button data-sub="historique" class="${subTab === 'historique' ? 'active' : ''}">Historique</button>
         <button data-sub="progression" class="${subTab === 'progression' ? 'active' : ''}">Progression</button>
       </div>
@@ -42,6 +43,7 @@ const MuscuView = (() => {
     const content = container.querySelector('#muscu-content');
     stopWatchingTimer();
     if (subTab === 'seance') renderSeance(content);
+    else if (subTab === 'programme') renderProgramme(content);
     else if (subTab === 'historique') renderHistorique(content);
     else renderProgression(content);
   }
@@ -65,6 +67,14 @@ const MuscuView = (() => {
         <input type="text" id="w-name" class="input" placeholder="Nom de la séance (ex: Push day)" value="${escapeAttr(w.name || '')}">
         <div class="small-muted">${formatDate(w.date)}</div>
       </div>
+      ${w.exercises.length === 0 && DB.getTemplates().length ? `
+        <div class="card">
+          <h3>Démarrer depuis un modèle</h3>
+          <div class="template-chips">
+            ${DB.getTemplates().map(t => `<button class="btn btn-secondary" data-load-tpl="${t.id}">${escapeHtml(t.name)}</button>`).join('')}
+          </div>
+        </div>
+      ` : ''}
       <div id="exercise-list">${w.exercises.map((ex, i) => exerciseCard(ex, i)).join('')}</div>
       <div class="card">
         <div class="row-inline">
@@ -90,6 +100,21 @@ const MuscuView = (() => {
       w.exercises.push({ name, sets: [] });
       DB.updateWorkout(w.id, { exercises: w.exercises });
       renderSeance(content);
+    });
+
+    content.querySelectorAll('[data-load-tpl]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tpl = DB.getTemplates().find(t => t.id === btn.dataset.loadTpl);
+        if (!tpl) return;
+        w.exercises = tpl.exercises.map(te => ({
+          name: te.name,
+          sets: [],
+          target: { sets: te.targetSets, reps: te.targetReps, restSeconds: te.restSeconds }
+        }));
+        if (!w.name) w.name = tpl.name;
+        DB.updateWorkout(w.id, { name: w.name, exercises: w.exercises });
+        renderSeance(content);
+      });
     });
 
     content.querySelector('#finish-workout-btn').addEventListener('click', () => {
@@ -126,6 +151,15 @@ const MuscuView = (() => {
     content.querySelector('#timer-plus').addEventListener('click', () => RestTimer.addSeconds(15));
   }
 
+  function targetLabel(target) {
+    if (!target || (!target.sets && !target.reps && !target.restSeconds)) return '';
+    const parts = [];
+    if (target.sets) parts.push(`${target.sets} séries`);
+    if (target.reps) parts.push(`${target.reps} reps`);
+    if (target.restSeconds) parts.push(`repos ${target.restSeconds}s`);
+    return `<div class="small-muted">Objectif : ${parts.join(' · ')}</div>`;
+  }
+
   function exerciseCard(ex, i) {
     return `
       <div class="card exercise-card" data-ex-index="${i}">
@@ -133,6 +167,7 @@ const MuscuView = (() => {
           <strong>${escapeHtml(ex.name)}</strong>
           <button class="btn-icon" data-remove-ex="${i}" aria-label="Supprimer">✕</button>
         </div>
+        ${targetLabel(ex.target)}
         <div class="set-list">
           ${ex.sets.map((s, si) => `
             <div class="set-row">
@@ -175,9 +210,10 @@ const MuscuView = (() => {
         const reps = Number(repsInput.value);
         const weight = Number(weightInput.value);
         if (!reps) { repsInput.focus(); return; }
-        w.exercises[exi].sets.push({ reps, weight: weight || 0 });
+        const ex = w.exercises[exi];
+        ex.sets.push({ reps, weight: weight || 0 });
         DB.updateWorkout(w.id, { exercises: w.exercises });
-        RestTimer.start();
+        RestTimer.start(ex.target && ex.target.restSeconds);
         renderSeance(content);
       });
     });
@@ -244,6 +280,106 @@ const MuscuView = (() => {
     content.querySelector('#prog-select')?.addEventListener('change', e => {
       progressionExercise = e.target.value;
       renderProgression(content);
+    });
+  }
+
+  function renderProgramme(content) {
+    const templates = DB.getTemplates();
+    content.innerHTML = `
+      <div class="card small-muted">Crée des modèles de séance (ex: Push, Pull, Legs) avec les exercices, l'objectif séries/reps et le temps de repos. Charge-les ensuite en un clic depuis l'onglet Séance.</div>
+      <div id="templates-list">${templates.map(t => templateCard(t)).join('')}</div>
+      <button class="btn btn-primary btn-block" id="add-template-btn">+ Nouveau modèle</button>
+      <datalist id="exercise-options">
+        ${DB.getExerciseLibrary().map(e => `<option value="${escapeAttr(e)}">`).join('')}
+      </datalist>
+    `;
+
+    content.querySelector('#add-template-btn').addEventListener('click', () => {
+      DB.addTemplate({ name: 'Nouveau modèle', exercises: [] });
+      renderProgramme(content);
+    });
+
+    templates.forEach(t => bindTemplateCard(content, t));
+  }
+
+  function templateCard(t) {
+    return `
+      <div class="card" data-tpl-id="${t.id}">
+        <div class="row-inline space-between">
+          <input type="text" class="input tpl-name" value="${escapeAttr(t.name)}" placeholder="Nom du modèle (ex: Push)">
+          <button class="btn-icon" data-del-tpl aria-label="Supprimer le modèle">✕</button>
+        </div>
+        ${t.exercises.map((te, i) => `
+          <div class="tpl-exercise-row">
+            <div class="row-inline space-between">
+              <strong>${escapeHtml(te.name)}</strong>
+              <button class="btn-icon" data-del-tpl-ex="${i}" aria-label="Supprimer l'exercice">✕</button>
+            </div>
+            <div class="row-inline">
+              <input type="number" inputmode="numeric" class="input input-small" placeholder="Séries" value="${te.targetSets ?? ''}" data-tpl-sets="${i}">
+              <input type="text" class="input input-small" placeholder="Reps (ex 8-10)" value="${escapeAttr(te.targetReps || '')}" data-tpl-reps="${i}">
+              <input type="number" inputmode="numeric" class="input input-small" placeholder="Repos (s)" value="${te.restSeconds ?? ''}" data-tpl-rest="${i}">
+            </div>
+          </div>
+        `).join('') || '<div class="small-muted">Aucun exercice</div>'}
+        <div class="row-inline">
+          <input type="text" class="input tpl-new-ex" list="exercise-options" placeholder="Ajouter un exercice">
+          <button class="btn btn-secondary" data-add-tpl-ex>+ Exercice</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function bindTemplateCard(content, t) {
+    const card = content.querySelector(`[data-tpl-id="${t.id}"]`);
+    if (!card) return;
+
+    card.querySelector('.tpl-name').addEventListener('change', e => {
+      DB.updateTemplate(t.id, { name: e.target.value });
+    });
+
+    card.querySelector('[data-del-tpl]').addEventListener('click', () => {
+      if (confirm(`Supprimer le modèle "${t.name}" ?`)) {
+        DB.deleteTemplate(t.id);
+        renderProgramme(content);
+      }
+    });
+
+    card.querySelectorAll('[data-del-tpl-ex]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        t.exercises.splice(Number(btn.dataset.delTplEx), 1);
+        DB.updateTemplate(t.id, { exercises: t.exercises });
+        renderProgramme(content);
+      });
+    });
+
+    card.querySelectorAll('[data-tpl-sets]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        t.exercises[Number(inp.dataset.tplSets)].targetSets = inp.value ? Number(inp.value) : null;
+        DB.updateTemplate(t.id, { exercises: t.exercises });
+      });
+    });
+    card.querySelectorAll('[data-tpl-reps]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        t.exercises[Number(inp.dataset.tplReps)].targetReps = inp.value.trim();
+        DB.updateTemplate(t.id, { exercises: t.exercises });
+      });
+    });
+    card.querySelectorAll('[data-tpl-rest]').forEach(inp => {
+      inp.addEventListener('change', () => {
+        t.exercises[Number(inp.dataset.tplRest)].restSeconds = inp.value ? Number(inp.value) : null;
+        DB.updateTemplate(t.id, { exercises: t.exercises });
+      });
+    });
+
+    card.querySelector('[data-add-tpl-ex]').addEventListener('click', () => {
+      const input = card.querySelector('.tpl-new-ex');
+      const name = input.value.trim();
+      if (!name) return;
+      DB.addExerciseToLibrary(name);
+      t.exercises.push({ name, targetSets: null, targetReps: '', restSeconds: null });
+      DB.updateTemplate(t.id, { exercises: t.exercises });
+      renderProgramme(content);
     });
   }
 

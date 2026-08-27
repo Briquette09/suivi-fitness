@@ -153,6 +153,13 @@ label { font-size: 0.8rem; color: var(--text-muted); }
 
 .small-muted { color: var(--text-muted); font-size: 0.8rem; }
 
+.template-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.tpl-exercise-row {
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
 .exercise-card { }
 .set-list { margin: 8px 0; }
 .set-row {
