@@ -27,6 +27,23 @@ const MuscuView = (() => {
     if (timerUnsub) { timerUnsub(); timerUnsub = null; }
   }
 
+  function parseTopReps(repsStr) {
+    if (!repsStr) return null;
+    const withoutJambe = repsStr.replace(/\/\s*jambe/i, '');
+    if (/[a-zA-Z]/.test(withoutJambe)) return null; // ex: "30-60 s" est une durée, pas des reps
+    const nums = withoutJambe.match(/\d+/g);
+    if (!nums || !nums.length) return null;
+    return Number(nums[nums.length - 1]);
+  }
+
+  function isTargetReached(ex) {
+    if (!ex.target || !ex.target.sets) return false;
+    const topReps = parseTopReps(ex.target.reps);
+    if (!topReps) return false;
+    if (ex.sets.length < ex.target.sets) return false;
+    return ex.sets.every(s => Number(s.reps) >= topReps);
+  }
+
   function render(container) {
     container.innerHTML = `
       <div class="subtabs">
@@ -67,6 +84,12 @@ const MuscuView = (() => {
         <input type="text" id="w-name" class="input" placeholder="Nom de la séance (ex: Push day)" value="${escapeAttr(w.name || '')}">
         <div class="small-muted">${formatDate(w.date)}</div>
       </div>
+      ${w.exercises.filter(isTargetReached).length ? `
+        <div class="card alert-card">
+          🎯 Objectif atteint sur ${w.exercises.filter(isTargetReached).length > 1 ? 'ces exercices' : 'cet exercice'} : ${w.exercises.filter(isTargetReached).map(ex => escapeHtml(ex.name)).join(', ')}.
+          Augmente la charge la prochaine fois (+ le plus petit disque dispo).
+        </div>
+      ` : ''}
       ${w.exercises.length === 0 && DB.getTemplates().length ? `
         <div class="card">
           <h3>Démarrer depuis un modèle</h3>
@@ -168,6 +191,7 @@ const MuscuView = (() => {
           <button class="btn-icon" data-remove-ex="${i}" aria-label="Supprimer">✕</button>
         </div>
         ${targetLabel(ex.target)}
+        ${isTargetReached(ex) ? '<div class="badge">🎯 Prêt à monter la charge</div>' : ''}
         <div class="set-list">
           ${ex.sets.map((s, si) => `
             <div class="set-row">
@@ -214,6 +238,9 @@ const MuscuView = (() => {
         ex.sets.push({ reps, weight: weight || 0 });
         DB.updateWorkout(w.id, { exercises: w.exercises });
         RestTimer.start(ex.target && ex.target.restSeconds);
+        if (ex.target && ex.sets.length === ex.target.sets && isTargetReached(ex)) {
+          toast(`🎯 ${ex.name} : augmente la charge la prochaine fois !`);
+        }
         renderSeance(content);
       });
     });

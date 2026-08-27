@@ -231,6 +231,13 @@ label { font-size: 0.8rem; color: var(--text-muted); }
   vertical-align: middle;
 }
 
+.alert-card {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: var(--accent);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
 .chart-svg { width: 100%; height: auto; display: block; }
 .chart-label { font-size: 9px; fill: var(--text-muted); }
 .chart-empty { color: var(--text-muted); font-size: 0.85rem; padding: 20px 0; text-align: center; }
