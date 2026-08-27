@@ -141,6 +141,7 @@ label { font-size: 0.8rem; color: var(--text-muted); }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-secondary { background: var(--border); color: var(--text); }
 .btn-danger { background: var(--danger); color: #fff; }
+.btn-block { display: block; width: 100%; text-align: center; margin-bottom: 12px; }
 .btn-icon {
   background: none;
   border: none;
@@ -190,6 +191,38 @@ label { font-size: 0.8rem; color: var(--text-muted); }
 .stat-row { display: flex; justify-content: space-around; text-align: center; }
 .stat-value { font-size: 1.3rem; font-weight: 700; }
 .stat-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+.timer-card { text-align: center; }
+.timer-display {
+  font-size: 2.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.timer-display.timer-running { color: var(--accent); }
+.timer-presets {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.timer-presets .btn { padding: 8px 10px; font-size: 0.8rem; }
+.timer-card .row-inline { justify-content: center; }
+.timer-card .row-inline .btn { flex: 1; max-width: 110px; }
+
+.badge {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
 
 .chart-svg { width: 100%; height: auto; display: block; }
 .chart-label { font-size: 9px; fill: var(--text-muted); }

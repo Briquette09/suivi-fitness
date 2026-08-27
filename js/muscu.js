@@ -2,15 +2,29 @@ const MuscuView = (() => {
   let subTab = 'seance'; // seance | historique | progression
   let openWorkoutId = null;
   let progressionExercise = null;
+  let timerUnsub = null;
 
   function ensureTodayWorkout() {
+    const workouts = DB.getWorkouts();
+    if (openWorkoutId) {
+      const opened = workouts.find(x => x.id === openWorkoutId);
+      if (opened) return opened;
+    }
     const today = DB.todayISO();
-    let w = DB.getWorkouts().find(x => x.date === today && x.id === openWorkoutId);
-    if (w) return w;
-    w = DB.getWorkouts().find(x => x.date === today);
+    let w = workouts.find(x => x.date === today && !x.completed);
     if (!w) w = DB.addWorkout({ date: today });
     openWorkoutId = w.id;
     return w;
+  }
+
+  function formatTime(seconds) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function stopWatchingTimer() {
+    if (timerUnsub) { timerUnsub(); timerUnsub = null; }
   }
 
   function render(container) {
@@ -26,14 +40,27 @@ const MuscuView = (() => {
       btn.addEventListener('click', () => { subTab = btn.dataset.sub; render(container); });
     });
     const content = container.querySelector('#muscu-content');
+    stopWatchingTimer();
     if (subTab === 'seance') renderSeance(content);
     else if (subTab === 'historique') renderHistorique(content);
     else renderProgression(content);
   }
 
   function renderSeance(content) {
+    stopWatchingTimer();
     const w = ensureTodayWorkout();
     content.innerHTML = `
+      <div class="card timer-card">
+        <div class="timer-display" id="timer-display">${formatTime(RestTimer.getRemaining())}</div>
+        <div class="timer-presets">
+          ${[30, 60, 90, 120, 180].map(s => `<button class="btn btn-secondary timer-preset" data-preset="${s}">${s < 60 ? s + 's' : (s / 60) + 'min'}</button>`).join('')}
+        </div>
+        <div class="row-inline">
+          <button class="btn btn-secondary" id="timer-minus">-15s</button>
+          <button class="btn btn-secondary" id="timer-stop">Stop</button>
+          <button class="btn btn-secondary" id="timer-plus">+15s</button>
+        </div>
+      </div>
       <div class="card">
         <input type="text" id="w-name" class="input" placeholder="Nom de la séance (ex: Push day)" value="${escapeAttr(w.name || '')}">
         <div class="small-muted">${formatDate(w.date)}</div>
@@ -48,6 +75,7 @@ const MuscuView = (() => {
           ${DB.getExerciseLibrary().map(e => `<option value="${escapeAttr(e)}">`).join('')}
         </datalist>
       </div>
+      <button class="btn btn-primary btn-block" id="finish-workout-btn">✅ Terminer la séance</button>
     `;
 
     content.querySelector('#w-name').addEventListener('change', e => {
@@ -64,7 +92,38 @@ const MuscuView = (() => {
       renderSeance(content);
     });
 
+    content.querySelector('#finish-workout-btn').addEventListener('click', () => {
+      if (!w.exercises.length || w.exercises.every(ex => !ex.sets.length)) {
+        DB.deleteWorkout(w.id);
+      } else {
+        DB.updateWorkout(w.id, { completed: true, completedAt: new Date().toISOString() });
+        toast('Séance terminée 💪');
+      }
+      openWorkoutId = null;
+      RestTimer.reset();
+      renderSeance(content);
+    });
+
+    bindTimer(content);
     bindExerciseCards(content, w);
+  }
+
+  function bindTimer(content) {
+    const update = () => {
+      const el = content.querySelector('#timer-display');
+      if (!el) return;
+      el.textContent = formatTime(RestTimer.getRemaining());
+      el.classList.toggle('timer-running', RestTimer.isRunning());
+    };
+    update();
+    timerUnsub = RestTimer.subscribe(update);
+
+    content.querySelectorAll('.timer-preset').forEach(btn => {
+      btn.addEventListener('click', () => RestTimer.start(Number(btn.dataset.preset)));
+    });
+    content.querySelector('#timer-stop').addEventListener('click', () => RestTimer.reset());
+    content.querySelector('#timer-minus').addEventListener('click', () => RestTimer.addSeconds(-15));
+    content.querySelector('#timer-plus').addEventListener('click', () => RestTimer.addSeconds(15));
   }
 
   function exerciseCard(ex, i) {
@@ -118,6 +177,7 @@ const MuscuView = (() => {
         if (!reps) { repsInput.focus(); return; }
         w.exercises[exi].sets.push({ reps, weight: weight || 0 });
         DB.updateWorkout(w.id, { exercises: w.exercises });
+        RestTimer.start();
         renderSeance(content);
       });
     });
@@ -134,6 +194,7 @@ const MuscuView = (() => {
         <div class="row-inline space-between">
           <div>
             <strong>${escapeHtml(w.name || 'Séance')}</strong>
+            ${w.completed ? '' : '<span class="badge">En cours</span>'}
             <div class="small-muted">${formatDate(w.date)} · ${w.exercises.length} exercice(s)</div>
           </div>
           <div class="row-inline">

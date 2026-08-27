@@ -1,4 +1,4 @@
-const CACHE_NAME = 'suivi-fitness-v1';
+const CACHE_NAME = 'suivi-fitness-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const ASSETS = [
   './css/style.css',
   './js/db.js',
   './js/charts.js',
+  './js/resttimer.js',
   './js/dashboard.js',
   './js/muscu.js',
   './js/nutrition.js',

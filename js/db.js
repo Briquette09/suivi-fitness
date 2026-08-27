@@ -53,7 +53,7 @@ const DB = {
   // Workouts (musculation)
   getWorkouts() { return [...data.workouts].sort((a, b) => b.date.localeCompare(a.date)); },
   addWorkout(workout) {
-    const w = { id: uid(), date: todayISO(), name: '', exercises: [], ...workout };
+    const w = { id: uid(), date: todayISO(), name: '', exercises: [], completed: false, ...workout };
     data.workouts.push(w);
     save();
     return w;
