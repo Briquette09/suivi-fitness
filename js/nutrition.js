@@ -1,6 +1,7 @@
 const NutritionView = (() => {
   let subTab = 'jour';
   let currentDate = DB.todayISO();
+  let selectedFood = null; // { type: 'db', food } | { type: 'favorite', food }
 
   function render(container) {
     container.innerHTML = `
@@ -36,7 +37,6 @@ const NutritionView = (() => {
     }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
 
     const meals = ['Petit-déjeuner', 'Déjeuner', 'Dîner', 'Collation'];
-    const favorites = DB.getFavoriteFoods();
 
     content.innerHTML = `
       <div class="card">
@@ -77,34 +77,29 @@ const NutritionView = (() => {
         <select id="meal-select" class="input">
           ${meals.map(m => `<option value="${m}">${m}</option>`).join('')}
         </select>
-        <input type="text" id="food-name" class="input" list="favorite-foods" placeholder="Nom de l'aliment">
-        <datalist id="favorite-foods">
-          ${favorites.map(f => `<option value="${escapeAttr(f.name)}">`).join('')}
-        </datalist>
-        <div class="row-inline">
-          <input type="number" inputmode="numeric" id="food-cal" class="input input-small" placeholder="Kcal">
-          <input type="number" inputmode="numeric" id="food-prot" class="input input-small" placeholder="Prot (g)">
-        </div>
-        <div class="row-inline">
-          <input type="number" inputmode="numeric" id="food-carb" class="input input-small" placeholder="Gluc (g)">
-          <input type="number" inputmode="numeric" id="food-fat" class="input input-small" placeholder="Lip (g)">
-        </div>
-        <button class="btn btn-primary" id="add-food-btn">+ Ajouter</button>
+        <input type="text" id="food-search" class="input" placeholder="Rechercher un aliment (ex : poulet, riz, pomme...)" autocomplete="off">
+        <div id="food-suggestions" class="suggestion-list"></div>
+        <div id="food-selected"></div>
+        <details class="manual-food">
+          <summary>Aliment personnalisé (saisie manuelle)</summary>
+          <input type="text" id="food-name" class="input" placeholder="Nom de l'aliment">
+          <div class="row-inline">
+            <input type="number" inputmode="numeric" id="food-cal" class="input input-small" placeholder="Kcal">
+            <input type="number" inputmode="numeric" id="food-prot" class="input input-small" placeholder="Prot (g)">
+          </div>
+          <div class="row-inline">
+            <input type="number" inputmode="numeric" id="food-carb" class="input input-small" placeholder="Gluc (g)">
+            <input type="number" inputmode="numeric" id="food-fat" class="input input-small" placeholder="Lip (g)">
+          </div>
+          <button class="btn btn-secondary" id="add-food-btn">+ Ajouter (manuel)</button>
+        </details>
       </div>
     `;
 
     content.querySelector('#prev-day').addEventListener('click', () => { shiftDate(-1); renderJour(content); });
     content.querySelector('#next-day').addEventListener('click', () => { shiftDate(1); renderJour(content); });
 
-    content.querySelector('#food-name').addEventListener('change', e => {
-      const fav = favorites.find(f => f.name.toLowerCase() === e.target.value.trim().toLowerCase());
-      if (fav) {
-        content.querySelector('#food-cal').value = fav.calories;
-        content.querySelector('#food-prot').value = fav.protein;
-        content.querySelector('#food-carb').value = fav.carbs;
-        content.querySelector('#food-fat').value = fav.fat;
-      }
-    });
+    content.querySelector('#food-search').addEventListener('input', () => updateSuggestions(content));
 
     content.querySelector('#add-food-btn').addEventListener('click', () => {
       const name = content.querySelector('#food-name').value.trim();
@@ -118,6 +113,7 @@ const NutritionView = (() => {
         carbs: Number(content.querySelector('#food-carb').value) || 0,
         fat: Number(content.querySelector('#food-fat').value) || 0
       });
+      selectedFood = null;
       renderJour(content);
     });
 
@@ -126,6 +122,127 @@ const NutritionView = (() => {
         DB.deleteNutritionEntry(btn.dataset.del);
         renderJour(content);
       });
+    });
+
+    if (selectedFood) renderSelectedFood(content);
+  }
+
+  function updateSuggestions(content) {
+    const query = content.querySelector('#food-search').value;
+    const box = content.querySelector('#food-suggestions');
+    if (!query.trim()) { box.innerHTML = ''; return; }
+    const q = query.trim().toLowerCase();
+    const dbResults = FoodDB.search(query);
+    const favResults = DB.getFavoriteFoods().filter(f => f.name.toLowerCase().includes(q)).slice(0, 5);
+    if (!dbResults.length && !favResults.length) {
+      box.innerHTML = '<div class="small-muted">Aucun résultat — utilise la saisie manuelle ci-dessous.</div>';
+      return;
+    }
+    box.innerHTML = `
+      ${favResults.map(f => `
+        <button type="button" class="suggestion-item" data-fav="${escapeAttr(f.name)}">
+          ${escapeHtml(f.name)} <span class="small-muted">· ${f.calories} kcal (déjà enregistré)</span>
+        </button>
+      `).join('')}
+      ${dbResults.map(f => `
+        <button type="button" class="suggestion-item" data-db="${escapeAttr(f.name)}">
+          ${escapeHtml(f.name)} <span class="small-muted">· ${f.kcal} kcal/100g</span>
+        </button>
+      `).join('')}
+    `;
+    box.querySelectorAll('[data-db]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const food = FoodDB.FOODS.find(f => f.name === btn.dataset.db);
+        selectedFood = { type: 'db', food, qty: 100 };
+        content.querySelector('#food-search').value = '';
+        box.innerHTML = '';
+        renderSelectedFood(content);
+      });
+    });
+    box.querySelectorAll('[data-fav]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const food = DB.getFavoriteFoods().find(f => f.name === btn.dataset.fav);
+        selectedFood = { type: 'favorite', food };
+        content.querySelector('#food-search').value = '';
+        box.innerHTML = '';
+        renderSelectedFood(content);
+      });
+    });
+  }
+
+  function renderSelectedFood(content) {
+    const box = content.querySelector('#food-selected');
+    if (!selectedFood) { box.innerHTML = ''; return; }
+    const { type, food } = selectedFood;
+
+    if (type === 'db') {
+      const qty = selectedFood.qty || 100;
+      const computed = {
+        calories: Math.round(food.kcal * qty / 100),
+        protein: Math.round(food.protein * qty / 100 * 10) / 10,
+        carbs: Math.round(food.carbs * qty / 100 * 10) / 10,
+        fat: Math.round(food.fat * qty / 100 * 10) / 10
+      };
+      box.innerHTML = `
+        <div class="card selected-food-card">
+          <strong>${escapeHtml(food.name)}</strong> <span class="small-muted">(base pour 100g)</span>
+          <div class="row-inline">
+            <input type="number" id="food-qty" class="input input-small" value="${qty}" min="1">
+            <span class="small-muted">grammes</span>
+          </div>
+          <div class="small-muted" id="food-computed">${computed.calories} kcal · P${computed.protein} G${computed.carbs} L${computed.fat}</div>
+          <div class="row-inline">
+            <button class="btn btn-primary" id="confirm-select-btn">+ Ajouter</button>
+            <button class="btn btn-secondary" id="cancel-select-btn">Annuler</button>
+          </div>
+        </div>
+      `;
+      box.querySelector('#food-qty').addEventListener('input', e => {
+        selectedFood.qty = Number(e.target.value) || 0;
+        renderSelectedFood(content);
+      });
+      box.querySelector('#confirm-select-btn').addEventListener('click', () => {
+        DB.addNutritionEntry({
+          date: currentDate,
+          meal: content.querySelector('#meal-select').value,
+          name: food.name,
+          calories: computed.calories,
+          protein: computed.protein,
+          carbs: computed.carbs,
+          fat: computed.fat
+        });
+        selectedFood = null;
+        renderJour(content);
+      });
+    } else {
+      box.innerHTML = `
+        <div class="card selected-food-card">
+          <strong>${escapeHtml(food.name)}</strong> <span class="small-muted">(portion déjà enregistrée)</span>
+          <div class="small-muted">${food.calories} kcal · P${food.protein} G${food.carbs} L${food.fat}</div>
+          <div class="row-inline">
+            <button class="btn btn-primary" id="confirm-select-btn">+ Ajouter</button>
+            <button class="btn btn-secondary" id="cancel-select-btn">Annuler</button>
+          </div>
+        </div>
+      `;
+      box.querySelector('#confirm-select-btn').addEventListener('click', () => {
+        DB.addNutritionEntry({
+          date: currentDate,
+          meal: content.querySelector('#meal-select').value,
+          name: food.name,
+          calories: food.calories,
+          protein: food.protein,
+          carbs: food.carbs,
+          fat: food.fat
+        });
+        selectedFood = null;
+        renderJour(content);
+      });
+    }
+
+    box.querySelector('#cancel-select-btn').addEventListener('click', () => {
+      selectedFood = null;
+      renderSelectedFood(content);
     });
   }
 

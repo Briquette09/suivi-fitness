@@ -1,10 +1,11 @@
-const CACHE_NAME = 'suivi-fitness-v5';
+const CACHE_NAME = 'suivi-fitness-v6';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './css/style.css',
   './js/db.js',
+  './js/fooddb.js',
   './js/charts.js',
   './js/resttimer.js',
   './js/dashboard.js',
