@@ -127,6 +127,15 @@ const NutritionView = (() => {
     if (selectedFood) renderSelectedFood(content);
   }
 
+  function computeMacros(food, qty) {
+    return {
+      calories: Math.round(food.kcal * qty / 100),
+      protein: Math.round(food.protein * qty / 100 * 10) / 10,
+      carbs: Math.round(food.carbs * qty / 100 * 10) / 10,
+      fat: Math.round(food.fat * qty / 100 * 10) / 10
+    };
+  }
+
   function updateSuggestions(content) {
     const query = content.querySelector('#food-search').value;
     const box = content.querySelector('#food-suggestions');
@@ -177,17 +186,12 @@ const NutritionView = (() => {
 
     if (type === 'db') {
       const qty = selectedFood.qty || 100;
-      const computed = {
-        calories: Math.round(food.kcal * qty / 100),
-        protein: Math.round(food.protein * qty / 100 * 10) / 10,
-        carbs: Math.round(food.carbs * qty / 100 * 10) / 10,
-        fat: Math.round(food.fat * qty / 100 * 10) / 10
-      };
+      let computed = computeMacros(food, qty);
       box.innerHTML = `
         <div class="card selected-food-card">
           <strong>${escapeHtml(food.name)}</strong> <span class="small-muted">(base pour 100g)</span>
           <div class="row-inline">
-            <input type="number" id="food-qty" class="input input-small" value="${qty}" min="1">
+            <input type="number" inputmode="numeric" id="food-qty" class="input input-small" value="${qty}" min="1">
             <span class="small-muted">grammes</span>
           </div>
           <div class="small-muted" id="food-computed">${computed.calories} kcal · P${computed.protein} G${computed.carbs} L${computed.fat}</div>
@@ -197,9 +201,14 @@ const NutritionView = (() => {
           </div>
         </div>
       `;
-      box.querySelector('#food-qty').addEventListener('input', e => {
-        selectedFood.qty = Number(e.target.value) || 0;
-        renderSelectedFood(content);
+      const qtyInput = box.querySelector('#food-qty');
+      const computedEl = box.querySelector('#food-computed');
+      qtyInput.addEventListener('focus', () => qtyInput.select());
+      qtyInput.addEventListener('input', () => {
+        const newQty = Number(qtyInput.value) || 0;
+        selectedFood.qty = newQty;
+        computed = computeMacros(food, newQty);
+        computedEl.textContent = `${computed.calories} kcal · P${computed.protein} G${computed.carbs} L${computed.fat}`;
       });
       box.querySelector('#confirm-select-btn').addEventListener('click', () => {
         DB.addNutritionEntry({

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'suivi-fitness-v6';
+const CACHE_NAME = 'suivi-fitness-v7';
 const ASSETS = [
   './',
   './index.html',
