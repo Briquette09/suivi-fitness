@@ -98,7 +98,7 @@ const MuscuView = (() => {
           </div>
         </div>
       ` : ''}
-      <div id="exercise-list">${w.exercises.map((ex, i) => exerciseCard(ex, i)).join('')}</div>
+      <div id="exercise-list">${w.exercises.map((ex, i) => exerciseCard(ex, i, w)).join('')}</div>
       <div class="card">
         <div class="row-inline">
           <input type="text" id="new-ex-name" class="input" list="exercise-options" placeholder="Ajouter un exercice">
@@ -183,7 +183,36 @@ const MuscuView = (() => {
     return `<div class="small-muted">Objectif : ${parts.join(' · ')}</div>`;
   }
 
-  function exerciseCard(ex, i) {
+  function lastPerformance(name, currentWorkoutId) {
+    for (const w of DB.getWorkouts()) {
+      if (w.id === currentWorkoutId) continue;
+      const ex = w.exercises.find(e => e.name === name && e.sets.length);
+      if (ex) return { date: w.date, ex };
+    }
+    return null;
+  }
+
+  function prefillValues(ex, last) {
+    const current = ex.sets[ex.sets.length - 1];
+    const lastSets = last ? last.ex.sets : [];
+    const lastSameSet = lastSets[ex.sets.length] || lastSets[lastSets.length - 1];
+    const reps = (lastSets[ex.sets.length] || current || lastSameSet || {}).reps;
+    const weight = (current || lastSameSet || {}).weight;
+    return { reps: reps ?? '', weight: weight ?? '' };
+  }
+
+  function lastTimeLabel(last) {
+    if (!last) return '';
+    const sets = last.ex.sets.map(s => `${s.reps}×${s.weight}`).join(' · ');
+    const hint = isTargetReached(last.ex)
+      ? '<div class="small-muted progress-hint">🎯 Objectif validé la dernière fois → monte la charge</div>'
+      : '';
+    return `<div class="small-muted last-time">Dernière fois (${shortDate(last.date)}) : ${sets} kg</div>${hint}`;
+  }
+
+  function exerciseCard(ex, i, w) {
+    const last = lastPerformance(ex.name, w.id);
+    const prefill = prefillValues(ex, last);
     return `
       <div class="card exercise-card" data-ex-index="${i}">
         <div class="row-inline space-between">
@@ -191,6 +220,7 @@ const MuscuView = (() => {
           <button class="btn-icon" data-remove-ex="${i}" aria-label="Supprimer">✕</button>
         </div>
         ${targetLabel(ex.target)}
+        ${lastTimeLabel(last)}
         ${isTargetReached(ex) ? '<div class="badge">🎯 Prêt à monter la charge</div>' : ''}
         <div class="set-list">
           ${ex.sets.map((s, si) => `
@@ -202,8 +232,8 @@ const MuscuView = (() => {
           `).join('') || '<div class="small-muted">Aucune série</div>'}
         </div>
         <div class="row-inline">
-          <input type="number" inputmode="numeric" class="input input-small" placeholder="Reps" data-reps-for="${i}">
-          <input type="number" inputmode="decimal" class="input input-small" placeholder="Kg" data-weight-for="${i}">
+          <input type="number" inputmode="numeric" class="input input-small" placeholder="Reps" data-reps-for="${i}" value="${prefill.reps}">
+          <input type="number" inputmode="decimal" class="input input-small" placeholder="Kg" data-weight-for="${i}" value="${prefill.weight}">
           <button class="btn btn-secondary" data-add-set="${i}">+ Série</button>
         </div>
       </div>
@@ -211,6 +241,9 @@ const MuscuView = (() => {
   }
 
   function bindExerciseCards(content, w) {
+    content.querySelectorAll('[data-reps-for], [data-weight-for]').forEach(inp => {
+      inp.addEventListener('focus', () => inp.select());
+    });
     content.querySelectorAll('[data-remove-ex]').forEach(btn => {
       btn.addEventListener('click', () => {
         w.exercises.splice(Number(btn.dataset.removeEx), 1);

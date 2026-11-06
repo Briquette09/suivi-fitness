@@ -155,6 +155,9 @@ label { font-size: 0.8rem; color: var(--text-muted); }
 
 .template-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 
+.last-time { margin-top: 4px; }
+.progress-hint { color: var(--accent); font-weight: 600; }
+
 .tpl-exercise-row {
   padding: 8px 0;
   border-top: 1px solid var(--border);
