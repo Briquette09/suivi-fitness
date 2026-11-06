@@ -1,18 +1,16 @@
-const CACHE_NAME = 'suivi-fitness-v8';
+const CACHE_NAME = 'suivi-muscu-v9';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './css/style.css',
   './js/db.js',
-  './js/fooddb.js',
+  './js/exercises.js',
+  './js/avatar.js',
   './js/charts.js',
   './js/resttimer.js',
-  './js/dashboard.js',
+  './js/timerwidget.js',
   './js/muscu.js',
-  './js/nutrition.js',
-  './js/poids.js',
-  './js/cardio.js',
   './js/reglages.js',
   './js/app.js',
   './icons/icon.svg'
@@ -32,18 +30,18 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Réseau d'abord (les mises à jour arrivent tout de suite), cache en secours hors connexion.
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const fetchPromise = fetch(event.request).then(response => {
+    fetch(event.request, { cache: 'no-cache' })
+      .then(response => {
         if (response && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
-      }).catch(() => cached);
-      return cached || fetchPromise;
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });

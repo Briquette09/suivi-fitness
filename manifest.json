@@ -1,12 +1,12 @@
 {
-  "name": "Suivi Fitness",
-  "short_name": "Fitness",
-  "description": "Suivi musculation, nutrition, poids et cardio",
+  "name": "Suivi Muscu",
+  "short_name": "Muscu",
+  "description": "Suivi de tes séances de musculation",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0b1120",
-  "theme_color": "#16a34a",
+  "background_color": "#0a1230",
+  "theme_color": "#0a1230",
   "orientation": "portrait",
   "icons": [
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }

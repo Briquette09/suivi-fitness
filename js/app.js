@@ -13,7 +13,7 @@ function shortDate(iso) {
 }
 
 let toastTimer = null;
-function toast(message) {
+function toast(message, duration = 2200) {
   let el = document.getElementById('toast');
   if (!el) {
     el = document.createElement('div');
@@ -23,19 +23,33 @@ function toast(message) {
   el.textContent = message;
   el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove('show'), 1800);
+  toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+}
+
+/* Panneau qui monte du bas de l'écran. render(body, close) remplit le contenu. */
+function openSheet(render) {
+  const overlay = document.createElement('div');
+  overlay.className = 'sheet-overlay';
+  overlay.innerHTML = '<div class="sheet"><div class="sheet-handle"></div><div class="sheet-body"></div></div>';
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('open'));
+  const close = () => {
+    overlay.classList.remove('open');
+    setTimeout(() => overlay.remove(), 250);
+  };
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  render(overlay.querySelector('.sheet-body'), close);
+  return close;
 }
 
 const TABS = [
-  { id: 'dashboard', label: 'Accueil', icon: '🏠', view: () => DashboardView },
-  { id: 'muscu', label: 'Muscu', icon: '🏋️', view: () => MuscuView },
-  { id: 'nutrition', label: 'Nutrition', icon: '🍽️', view: () => NutritionView },
-  { id: 'poids', label: 'Poids', icon: '⚖️', view: () => PoidsView },
-  { id: 'cardio', label: 'Cardio', icon: '🏃', view: () => CardioView },
-  { id: 'reglages', label: 'Réglages', icon: '⚙️', view: () => ReglagesView }
+  { id: 'seance', label: 'Séance', icon: '🏋️' },
+  { id: 'programme', label: 'Programme', icon: '📋' },
+  { id: 'historique', label: 'Historique', icon: '📅' },
+  { id: 'progres', label: 'Progrès', icon: '📈' }
 ];
 
-let activeTab = 'dashboard';
+let activeTab = 'seance';
 
 function renderNav() {
   const nav = document.getElementById('nav');
@@ -46,11 +60,7 @@ function renderNav() {
     </button>
   `).join('');
   nav.querySelectorAll('[data-tab]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      activeTab = btn.dataset.tab;
-      renderNav();
-      renderView();
-    });
+    btn.addEventListener('click', () => goTo(btn.dataset.tab));
   });
 }
 
@@ -58,16 +68,30 @@ function renderView() {
   const view = document.getElementById('view');
   const tab = TABS.find(t => t.id === activeTab);
   document.getElementById('header-title').textContent = tab.label;
-  tab.view().render(view);
+  MuscuView.render(view, activeTab);
+}
+
+function goTo(tabId) {
+  activeTab = tabId;
+  renderNav();
+  renderView();
+  document.getElementById('view').scrollTop = 0;
 }
 
 function init() {
   renderNav();
   renderView();
+  TimerWidget.init();
+
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    openSheet(body => ReglagesView.render(body));
+  });
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed', err));
   }
 }
+
+window.App = { goTo };
 
 document.addEventListener('DOMContentLoaded', init);

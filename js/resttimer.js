@@ -5,7 +5,7 @@ const RestTimer = (() => {
   let intervalId = null;
   const listeners = new Set();
 
-  function notify() { listeners.forEach(fn => fn()); }
+  function notify(event = 'tick') { listeners.forEach(fn => fn(event)); }
 
   function playBeep() {
     try {
@@ -29,6 +29,8 @@ const RestTimer = (() => {
       intervalId = null;
       if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 300]);
       playBeep();
+      notify('end');
+      return;
     }
     notify();
   }

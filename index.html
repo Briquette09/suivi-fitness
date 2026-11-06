@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
-  <title>Suivi Fitness</title>
-  <meta name="theme-color" content="#16a34a">
+  <title>Suivi Muscu</title>
+  <meta name="theme-color" content="#0a1230">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,20 +15,24 @@
 </head>
 <body>
   <div id="app">
-    <header id="header-title">Accueil</header>
+    <header class="app-header">
+      <div>
+        <div class="app-kicker">Suivi Muscu</div>
+        <h1 id="header-title">Séance</h1>
+      </div>
+      <button id="settings-btn" class="icon-btn" aria-label="Sauvegarde et réglages">⚙️</button>
+    </header>
     <main id="view"></main>
     <nav id="nav"></nav>
   </div>
 
   <script src="js/db.js"></script>
-  <script src="js/fooddb.js"></script>
+  <script src="js/exercises.js"></script>
+  <script src="js/avatar.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/resttimer.js"></script>
-  <script src="js/dashboard.js"></script>
+  <script src="js/timerwidget.js"></script>
   <script src="js/muscu.js"></script>
-  <script src="js/nutrition.js"></script>
-  <script src="js/poids.js"></script>
-  <script src="js/cardio.js"></script>
   <script src="js/reglages.js"></script>
   <script src="js/app.js"></script>
 </body>
