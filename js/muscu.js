@@ -153,6 +153,7 @@ const MuscuView = (() => {
           ${targetSets ? `<span class="pill">${doneSets}/${targetSets} séries</span>` : ''}
         </div>
         ${targetSets ? `<div class="xp-track thin"><div class="xp-fill" style="width:${Math.min(100, Math.round(doneSets / targetSets * 100))}%"></div></div>` : ''}
+        ${w.exercises.length && templates.length ? '<button class="pill-btn switch-btn" id="switch-session-btn">⇄ Changer de séance</button>' : ''}
       </div>
       ${reached.length ? `
         <div class="card alert-card">
@@ -207,16 +208,13 @@ const MuscuView = (() => {
       btn.addEventListener('click', () => {
         const tpl = DB.getTemplates().find(t => t.id === btn.dataset.loadTpl);
         if (!tpl) return;
-        w.exercises = tpl.exercises.map(te => ({
-          name: te.name,
-          sets: [],
-          target: { sets: te.targetSets, reps: te.targetReps, restSeconds: te.restSeconds }
-        }));
-        if (!w.name) w.name = tpl.name;
-        DB.updateWorkout(w.id, { name: w.name, exercises: w.exercises });
+        loadTemplate(w, tpl);
         renderSeance(content);
       });
     });
+
+    const switchBtn = content.querySelector('#switch-session-btn');
+    if (switchBtn) switchBtn.addEventListener('click', () => openSwitchSheet(content, w));
 
     const finishBtn = content.querySelector('#finish-workout-btn');
     if (finishBtn) finishBtn.addEventListener('click', () => openMoodSheet(w, content));
@@ -260,8 +258,8 @@ const MuscuView = (() => {
         <div class="set-input">
           <label><span>Reps</span><input type="number" inputmode="numeric" class="input" data-reps-for="${i}" value="${prefill.reps}"></label>
           <label><span>Kg</span><input type="number" inputmode="decimal" class="input" data-weight-for="${i}" value="${prefill.weight}"></label>
-          <button class="btn btn-primary" data-add-set="${i}">+ Série</button>
         </div>
+        <button class="btn btn-primary btn-block add-set-btn" data-add-set="${i}">+ Valider la série ${done + 1}</button>
       </div>
     `;
   }
@@ -301,7 +299,58 @@ const MuscuView = (() => {
     });
   }
 
+  function loadTemplate(w, tpl) {
+    w.exercises = tpl.exercises.map(te => ({
+      name: te.name,
+      sets: [],
+      target: { sets: te.targetSets, reps: te.targetReps, restSeconds: te.restSeconds }
+    }));
+    w.name = tpl.name;
+    DB.updateWorkout(w.id, { name: w.name, exercises: w.exercises });
+  }
+
   // ---------- Panneaux ----------
+
+  function openSwitchSheet(content, w) {
+    const templates = sortedTemplates();
+    const doneSets = w.exercises.reduce((s, ex) => s + ex.sets.length, 0);
+    openSheet((body, close) => {
+      body.innerHTML = `
+        <h3 class="sheet-title">Changer de séance</h3>
+        ${doneSets ? `<p class="small-muted">⚠️ Tu as déjà saisi ${doneSets} série${doneSets > 1 ? 's : elles seront effacées' : ' : elle sera effacée'}.</p>` : ''}
+        <div class="template-grid">
+          ${templates.map((t, i) => `
+            <button class="tpl-btn tpl-c${i % 4} ${t.name === w.name ? 'suggested' : ''}" data-switch-tpl="${t.id}">
+              ${t.name === w.name ? '<span class="tpl-tag">En cours</span>' : ''}
+              <span class="tpl-name">${escapeHtml(t.name)}</span>
+              <span class="tpl-sub">${t.exercises.length} exercices</span>
+            </button>
+          `).join('')}
+        </div>
+        <button class="btn btn-secondary btn-block sheet-gap" data-empty>Séance libre (vide)</button>
+        <button class="btn btn-ghost btn-block" data-cancel>Annuler</button>
+      `;
+      const apply = fn => {
+        if (doneSets && !confirm('Les séries déjà saisies seront effacées. Continuer ?')) return;
+        fn();
+        close();
+        renderSeance(content);
+      };
+      body.querySelectorAll('[data-switch-tpl]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tpl = templates.find(t => t.id === btn.dataset.switchTpl);
+          if (tpl.name === w.name) { close(); return; }
+          apply(() => loadTemplate(w, tpl));
+        });
+      });
+      body.querySelector('[data-empty]').addEventListener('click', () => apply(() => {
+        w.exercises = [];
+        w.name = '';
+        DB.updateWorkout(w.id, { name: '', exercises: [] });
+      }));
+      body.querySelector('[data-cancel]').addEventListener('click', close);
+    });
+  }
 
   function openReplaceSheet(content, w, exi) {
     const ex = w.exercises[exi];

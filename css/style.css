@@ -276,6 +276,9 @@ select.input { appearance: none; }
   padding: 0 4px;
 }
 
+.switch-btn { margin-top: 10px; color: var(--accent); border-color: rgba(34, 211, 238, 0.4); }
+.sheet-gap { margin-top: 14px; }
+
 .alert-card {
   background: linear-gradient(135deg, rgba(52, 211, 153, 0.18), rgba(34, 211, 238, 0.12));
   border-color: rgba(52, 211, 153, 0.5);
@@ -394,7 +397,7 @@ select.input { appearance: none; }
   padding-left: 2px;
 }
 .set-input .input { text-align: center; font-size: 1.1rem; font-weight: 800; padding: 10px 6px; }
-.set-input .btn { padding: 12px 14px; }
+.add-set-btn { margin: 10px 0 0; padding: 13px; }
 
 .add-ex-card { padding: 12px; }
 .add-ex-card .btn { padding: 11px 18px; font-size: 1.2rem; }
